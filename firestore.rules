@@ -1,0 +1,340 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerified() && request.auth.token.email == 'jatinkanara2006@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin();
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isValidNumberRange(val, minVal, maxVal) {
+      return (val is int || val is float) && val >= minVal && val <= maxVal;
+    }
+
+    // --- Entity Validation Blueprints ---
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'state', 'district', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'role', 'phone', 'state', 'district',
+          'village', 'preferredLanguage', 'farmingExperienceYears', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && isValidString(data.displayName, 1, 100)
+        && isValidString(data.email, 3, 200)
+        && data.role in ['farmer', 'admin']
+        && isValidString(data.state, 1, 80)
+        && isValidString(data.district, 1, 80)
+        && isValidOptionalString(data, 'phone', 30)
+        && isValidOptionalString(data, 'village', 80)
+        && (!('preferredLanguage' in data) || data.preferredLanguage in ['English', 'Hindi', 'Gujarati', 'Marathi', 'Punjabi', 'Tamil', 'Telugu'])
+        && (!('farmingExperienceYears' in data) || isValidNumberRange(data.farmingExperienceYears, 0, 80))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedAt'])
+        && isValidId(data.uid)
+        && isValidString(data.email, 3, 200)
+        && data.grantedAt is timestamp;
+    }
+
+    function isValidFarmPlot(data) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'name', 'district', 'state', 'latitude', 'longitude',
+          'areaAcres', 'soilType', 'irrigationType', 'season',
+          'nitrogen', 'phosphorus', 'potassium', 'soilPh', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'name', 'district', 'state', 'latitude', 'longitude',
+          'areaAcres', 'soilType', 'irrigationType', 'season', 'currentCrop',
+          'nitrogen', 'phosphorus', 'potassium', 'soilPh', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && isValidString(data.name, 2, 100)
+        && isValidString(data.district, 2, 80)
+        && isValidString(data.state, 2, 80)
+        && isValidNumberRange(data.latitude, -90, 90)
+        && isValidNumberRange(data.longitude, -180, 180)
+        && isValidNumberRange(data.areaAcres, 0.05, 50000)
+        && data.soilType in ['Alluvial', 'Black Cotton', 'Red Loam', 'Sandy Loam', 'Clay Loam', 'Laterite']
+        && data.irrigationType in ['Canal', 'Borewell / Tubewell', 'Drip Irrigation', 'Sprinkler', 'Rainfed Only']
+        && data.season in ['Kharif', 'Rabi', 'Zaid']
+        && isValidOptionalString(data, 'currentCrop', 80)
+        && isValidNumberRange(data.nitrogen, 0, 300)
+        && isValidNumberRange(data.phosphorus, 0, 300)
+        && isValidNumberRange(data.potassium, 0, 400)
+        && isValidNumberRange(data.soilPh, 3.0, 10.0)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAnalysisRecord(data) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'farmId', 'farmName', 'moduleType', 'source',
+          'model', 'title', 'summary', 'severity', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'farmId', 'farmName', 'moduleType', 'source',
+          'model', 'title', 'summary', 'severity', 'highlights', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && isValidId(data.farmId)
+        && isValidString(data.farmName, 1, 100)
+        && data.moduleType in ['crop', 'disease', 'yield', 'decision']
+        && data.source in ['LIVE_OLLAMA', 'DEMO']
+        && isValidString(data.model, 1, 80)
+        && isValidString(data.title, 2, 160)
+        && isValidString(data.summary, 2, 1500)
+        && data.severity in ['normal', 'moderate', 'high']
+        && (
+          !('highlights' in data)
+          || (
+            data.highlights is list
+            && data.highlights.size() <= 8
+            && (data.highlights.size() == 0 || (data.highlights[0] is string && data.highlights[0].size() <= 200))
+          )
+        )
+        && data.createdAt is timestamp;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'sender', 'content', 'source', 'createdAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'farmId', 'sender', 'content', 'source', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && isValidOptionalString(data, 'farmId', 128)
+        && data.sender in ['user', 'assistant']
+        && isValidString(data.content, 1, 4000)
+        && data.source in ['USER', 'LIVE_OLLAMA', 'DEMO']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRegionalAdvisory(data) {
+      return data.keys().hasAll([
+          'id', 'authorId', 'authorName', 'title', 'region', 'category',
+          'severity', 'message', 'active', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'authorId', 'authorName', 'title', 'region', 'category',
+          'severity', 'message', 'active', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.authorId)
+        && isValidString(data.authorName, 1, 100)
+        && isValidString(data.title, 3, 140)
+        && isValidString(data.region, 2, 100)
+        && data.category in ['weather', 'pest', 'soil', 'market']
+        && data.severity in ['info', 'warning', 'critical']
+        && isValidString(data.message, 5, 1200)
+        && data.active is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Farmer & Admin Profiles (PII Isolated to Owner or Admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId) && incoming().role == 'farmer')
+          || isAdmin()
+        );
+
+      allow update: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'phone', 'state', 'district', 'village',
+              'preferredLanguage', 'farmingExperienceYears', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 2. Trusted Admins Registry (Locked exclusively to jatinkanara2006@gmail.com)
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerified()
+        && isValidId(adminId)
+        && isValidAdminRecord(incoming())
+        && incoming().uid == adminId
+        && incoming().grantedAt == request.time
+        && isAdmin();
+      allow update: if false;
+      allow delete: if isValidId(adminId) && isAdmin();
+    }
+
+    // 3. Farm Plots
+    match /farms/{farmId} {
+      allow get: if isValidId(farmId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(farmId)
+        && isValidFarmPlot(incoming())
+        && incoming().id == farmId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified()
+        && isValidId(farmId)
+        && isValidFarmPlot(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().ownerId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'district', 'state', 'latitude', 'longitude', 'areaAcres',
+              'soilType', 'irrigationType', 'season', 'currentCrop',
+              'nitrogen', 'phosphorus', 'potassium', 'soilPh', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerified() && isValidId(farmId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 4. AI Analysis History
+    match /analyses/{analysisId} {
+      allow get: if isValidId(analysisId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(analysisId)
+        && isValidAnalysisRecord(incoming())
+        && incoming().id == analysisId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/farms/$(incoming().farmId))
+        && get(/databases/$(database)/documents/farms/$(incoming().farmId)).data.ownerId == request.auth.uid;
+
+      allow update: if isVerified()
+        && isValidId(analysisId)
+        && isValidAnalysisRecord(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['summary', 'severity', 'highlights']);
+
+      allow delete: if isVerified() && isValidId(analysisId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 5. AgriBot Chat History
+    match /chatMessages/{messageId} {
+      allow get: if isValidId(messageId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(messageId)
+        && isValidChatMessage(incoming())
+        && incoming().id == messageId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+
+      allow delete: if isVerified() && isValidId(messageId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 6. Regional Farmer Advisories (Admin Write, Authenticated Read of Active Advisories)
+    match /advisories/{advisoryId} {
+      allow get: if isValidId(advisoryId) && isSignedIn() && (existing().active == true || isAdmin());
+      allow list: if isSignedIn() && (resource.data.active == true || isBootstrappedAdmin());
+
+      allow create: if isVerified()
+        && isValidId(advisoryId)
+        && isValidRegionalAdvisory(incoming())
+        && incoming().id == advisoryId
+        && incoming().authorId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isVerified()
+        && isValidId(advisoryId)
+        && isValidRegionalAdvisory(incoming())
+        && incoming().id == existing().id
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'region', 'category', 'severity', 'message', 'active', 'updatedAt'
+        ]);
+
+      allow delete: if isVerified() && isValidId(advisoryId) && isAdmin();
+    }
+  }
+}

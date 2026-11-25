@@ -1,0 +1,6 @@
+{
+  "name": "AgriSmart",
+  "description": "AI-powered agricultural companion platform for South Asian farmers and agricultural administrators featuring crop recommendation, leaf disease detection, yield prediction, live Open-Meteo weather alerts, AgriBot AI chatbot, farm management, and a unified decision engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

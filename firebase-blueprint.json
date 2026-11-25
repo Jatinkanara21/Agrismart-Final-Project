@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Farmer or administrator profile with regional farming defaults. PII restricted to owner or admin.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["farmer", "admin"] },
+        "phone": { "type": "string", "maxLength": 30 },
+        "state": { "type": "string", "maxLength": 80 },
+        "district": { "type": "string", "maxLength": 80 },
+        "village": { "type": "string", "maxLength": 80 },
+        "preferredLanguage": { "type": "string", "enum": ["English", "Hindi", "Gujarati", "Marathi", "Punjabi", "Tamil", "Telugu"] },
+        "farmingExperienceYears": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "role", "state", "district", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin role assignment document keyed by user UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "grantedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedAt"]
+    },
+    "FarmPlot": {
+      "title": "FarmPlot",
+      "description": "Individual farm plot owned by a farmer with South Asian acreage, soil profile, GPS coordinates, and season.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "district": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "state": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "areaAcres": { "type": "number" },
+        "soilType": { "type": "string", "enum": ["Alluvial", "Black Cotton", "Red Loam", "Sandy Loam", "Clay Loam", "Laterite"] },
+        "irrigationType": { "type": "string", "enum": ["Canal", "Borewell / Tubewell", "Drip Irrigation", "Sprinkler", "Rainfed Only"] },
+        "season": { "type": "string", "enum": ["Kharif", "Rabi", "Zaid"] },
+        "currentCrop": { "type": "string", "maxLength": 80 },
+        "nitrogen": { "type": "number" },
+        "phosphorus": { "type": "number" },
+        "potassium": { "type": "number" },
+        "soilPh": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "district", "state", "latitude", "longitude", "areaAcres", "soilType", "irrigationType", "season", "nitrogen", "phosphorus", "potassium", "soilPh", "createdAt", "updatedAt"]
+    },
+    "AnalysisRecord": {
+      "title": "AnalysisRecord",
+      "description": "Saved agricultural AI analysis record across crop recommendation, plant disease detection, yield prediction, and decision engine.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "moduleType": { "type": "string", "enum": ["crop", "disease", "yield", "decision"] },
+        "source": { "type": "string", "enum": ["LIVE_OLLAMA", "DEMO"] },
+        "model": { "type": "string", "maxLength": 80 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "summary": { "type": "string", "minLength": 2, "maxLength": 1500 },
+        "severity": { "type": "string", "enum": ["normal", "moderate", "high"] },
+        "highlights": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "farmId", "farmName", "moduleType", "source", "model", "title", "summary", "severity", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "AgriBot conversation turn owned by a farmer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "maxLength": 128 },
+        "sender": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "source": { "type": "string", "enum": ["USER", "LIVE_OLLAMA", "DEMO"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "sender", "content", "source", "createdAt"]
+    },
+    "RegionalAdvisory": {
+      "title": "RegionalAdvisory",
+      "description": "Regional agricultural alert or guidance broadcast by admins to farmers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "category": { "type": "string", "enum": ["weather", "pest", "soil", "market"] },
+        "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+        "message": { "type": "string", "minLength": 5, "maxLength": 1200 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "authorName", "title", "region", "category", "severity", "message", "active", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Farmer and admin profile documents. PII restricted to owner or admin."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted admin role assignment documents readable only by owner or admin."
+    },
+    "/farms/{farmId}": {
+      "schema": { "$ref": "#/entities/FarmPlot" },
+      "description": "Farm plot documents owned by individual farmers."
+    },
+    "/analyses/{analysisId}": {
+      "schema": { "$ref": "#/entities/AnalysisRecord" },
+      "description": "Saved AI module analysis history records linked to a farmer and farm plot."
+    },
+    "/chatMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "AgriBot AI chat messages belonging to a farmer."
+    },
+    "/advisories/{advisoryId}": {
+      "schema": { "$ref": "#/entities/RegionalAdvisory" },
+      "description": "Regional farming advisories published by admins and readable by authenticated farmers."
+    }
+  }
+}
